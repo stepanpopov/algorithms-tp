@@ -1,15 +1,12 @@
 #include <iostream>
-#include <cstring>
-
-using namespace std;
 
 ///// VECTOR
-const int MAX_SIZE = 5;
+const int MAX_SIZE = 5;  // TODO const static
 
 template<class T>
 class vector {
 public:
-    vector(T el, int maxsz = MAX_SIZE);
+    vector(size_t size, T el = T(0), int maxsz = MAX_SIZE);
 
     vector();
 
@@ -52,25 +49,29 @@ private:
     void resize();
 };
 
+// #include "vector.inl"
 template<class T>
-vector<T>::vector(T el, int maxsz) : maxsize(maxsz), size(1) {
+vector<T>::vector(size_t size, T el, int maxsz) : maxsize(maxsz), size(size) {
+    maxsize = (maxsz > size * 2 ? maxsz : size * 2);
     pdata = new T[maxsize];
-    pdata[0] = el;
-    for (int i = 1; i < maxsize; ++i) {
-        pdata[i] = T(0);                       // !!!!!!
+    for (int i = 0; i < size; ++i) {
+        pdata[i] = el;
     }
+    /*for (int i = 1; i < maxsize; ++i) {
+        pdata[i] = T(0);                       // !!!!!!
+    }*/
 }
 
 template<class T>
 vector<T>::vector() : maxsize(MAX_SIZE), size(0) {
     pdata = new T[maxsize];
-    for (int i = 0; i < maxsize; ++i) {
+    /*for (int i = 0; i < maxsize; ++i) {
         pdata[i] = T(0);                       // !!!!!!
-    }
+    }*/
 }
 
 template<class T>
-vector<T>::vector(const vector <T> &v) : pdata(0) {
+vector<T>::vector(const vector<T> &v) : pdata(0) {
     *this = v;
 }
 
@@ -81,15 +82,18 @@ vector<T>::~vector() {
 
 template<class T>
 void vector<T>::add_element(T el) {
-    size++;
-    if (size > maxsize) {
+    if (size == maxsize) {
         resize();
     }
+    size++;
     pdata[size - 1] = el;
 }
 
 template<class T>
 bool vector<T>::delete_element(int i) {
+    if (size == 0) {
+        return false;
+    }
     if (i < 0 || i >= size) {
         return false;
     }
@@ -98,26 +102,18 @@ bool vector<T>::delete_element(int i) {
         pdata[it] = pdata[it + 1];
     }
     size--;
-    if (size < maxsize / 2) {
-        resize();
-    }
     return true;
 }
 
 template<class T>
 T vector<T>::operator[](int i) const {
-    if (i < 0 || i >= size) {
-        return 0;                           // !!!!
-    } else {
-        return pdata[i];
-    }
+    return pdata[i];
 }
 
 template<class T>
 T &vector<T>::operator[](int i) {
     return pdata[i];
 }
-
 
 template<class T>
 void vector<T>::sort() {
@@ -159,12 +155,12 @@ int vector<T>::find(T el) {
 }
 
 template<class T>
-vector <T> &vector<T>::operator=(const vector <T> &v) {
+vector<T> &vector<T>::operator=(const vector<T> &v) {
     size = v.size;
     maxsize = v.maxsize;
 
     if (pdata != NULL) {
-        delete[]pdata;
+        delete[] pdata;
     }
     pdata = new T[maxsize];
     for (int i = 0; i < maxsize; ++i) {
@@ -175,62 +171,209 @@ vector <T> &vector<T>::operator=(const vector <T> &v) {
 
 template<class T>
 void vector<T>::resize() {
-    if (maxsize < size) {
+    if (maxsize <= size) {
         if (maxsize < 2) {
             maxsize = MAX_SIZE;
         } else {
-            maxsize *= 1.5;
+            maxsize *= 2;
         }
     } else {
         return;
     }
 
     T *newdata = new T[maxsize];
-    for (int i = 0; i < maxsize; ++i) {
+    /*for (int i = 0; i < maxsize; ++i) {
         newdata[i] = T(0);
-    }
-    for (int i = 0; i < size - 1; ++i) {
+    }*/
+    for (int i = 0; i < size; ++i) {
         newdata[i] = pdata[i];
     }
     delete[] pdata;
     pdata = newdata;
 }
+
 ////// VECTOR END
 
 template<typename T, typename Comparator = std::less <T>>
-class Heap {
+class Heap {   // TODO конструктор по массиву
 public:
-    Heap();
+    Heap(Comparator comp = Comparator()) : cmp(comp), arr() {}
+    // Heap() : cmp(Comparator()), arr() {}
 
-    Heap(const Heap &);
+    Heap(size_t size, T el, Comparator comp = Comparator()) : cmp(comp), arr(size, el) {}
 
-    Heap &operator=(const Heap &);
+    Heap(const Heap &) = default;
+
+    Heap &operator=(const Heap &) = default;
 
     ~Heap() = default;
 
-    void insert(T el);
+    void push(T el) {
+        arr.add_element(el);
+        sift_up(arr.get_size() - 1);
+    }
 
-    const T &top() const;
+    T top() const {
+        return arr[0];  // почему копия
+    }
 
-    void pop();
+    void pop() {
+        arr[0] = arr[arr.get_size() - 1];
+        arr.delete_element(arr.get_size() - 1);
+        sift_down(0);
+    }
+
+    friend
+    std::ostream &operator<<(std::ostream &out, Heap<T, Comparator> heap) {
+        out << "size:" << heap.arr.get_size() << std::endl;
+        for (int i = 0; i < heap.arr.get_size(); ++i) {
+            out << heap.arr[i] << " ";
+        }
+        out << std::endl;
+        return out;
+    }
 
 private:
-    void sift_down();
+    void sift_down(size_t i) {
+        size_t left_ind = 2 * i + 1;
+        size_t right_ind = 2 * i + 2;
 
-    void sift_up();
+        size_t max_ind = i;
+        if (left_ind < arr.get_size() && cmp(arr[i], arr[left_ind])) {
+            max_ind = left_ind;
+        }
+        if (right_ind < arr.get_size() && cmp(arr[max_ind], arr[right_ind])) {
+            max_ind = right_ind;
+        }
+
+        if (i != max_ind) {
+            T temp = arr[max_ind];
+            arr[max_ind] = arr[i];
+            arr[i] = temp;
+
+            sift_down(max_ind);
+        }
+    }
+
+    void sift_up(size_t i) {
+        if (i == 0) return;
+
+        size_t parent_ind = (i - 1) / 2;
+        if (!cmp(arr[parent_ind], arr[i])) {
+            return;
+        } else {
+            T temp = arr[parent_ind];
+            arr[parent_ind] = arr[i];
+            arr[i] = temp;
+        }
+        sift_up(parent_ind);
+        /*while( i > 0 ) {
+            int parent = ( i - 1 ) / 2;
+            if( arr[i] <= arr[parent] )
+                return;
+            std::swap( arr[i], arr[parent] );
+            i = parent;
+        }*/
+    }
+
+    void build_heap() {
+        for (size_t i = arr.get_size() / 2 - 1; i >= 0; --i) {
+            sift_down(i);
+        }
+    }
 
     Comparator cmp;
 
-    vector<T> vec;
+    vector<T> arr;
 };
 
-int main() {
-    vector<int> vec;
+void test() {
+    // auto lambda = [](int a, int b) { return a < b; };
+    Heap<int, std::less < int>>
+    heap((std::less<int>()));
 
-    for (int i = 0; i < 50; ++i) {
-        vec.add_element(i);
+    heap.push(5);
+    heap.push(56);
+    heap.push(-7);
+    heap.push(99);
+    heap.push(3);
+
+    std::cout << heap;
+    heap.pop();
+    heap.pop();
+    heap.pop();
+
+    std::cout << heap;
+}
+
+struct array_iter {
+    int *buf = nullptr;
+    size_t pos = 0;
+    size_t size = 0;
+};
+
+vector<int> heap_merge(array_iter array_of_iters[], size_t k, size_t n) {
+    vector<int> res;
+
+    auto cmp = [](array_iter it1, array_iter it2) {
+        return it1.buf[it1.pos] > it2.buf[it2.pos];
+    };
+
+    Heap<array_iter, decltype(cmp)> heap(cmp);
+
+    for (size_t i = 0; i < k; ++i) {
+        heap.push(array_of_iters[i]);
     }
-    std::cout << vec;
+
+    for (size_t i = 0; i < n; ++i) {
+        array_iter top = heap.top();
+        heap.pop();
+
+        res.add_element(top.buf[top.pos]);
+
+        top.pos++;
+        if (top.pos < top.size) {
+            heap.push(top);
+        }
+    }
+
+    return res;
+}
+
+int main() {
+    size_t k = 0;
+    size_t n = 0;
+    std::cin >> k;
+
+    array_iter *array_of_iters = new array_iter[k];
+
+    for (size_t i = 0; i < k; ++i) {
+        size_t size_buf = 0;
+        std::cin >> size_buf;
+
+        array_iter iter;
+        iter.buf = new int[size_buf];
+        iter.size = size_buf;
+
+        for (size_t j = 0; j < size_buf; ++j) {
+            std::cin >> iter.buf[j];
+        }
+        array_of_iters[i] = iter;
+        n += size_buf;
+    }
+
+    vector<int> result = heap_merge(array_of_iters, k, n);
+
+    for (size_t i = 0; i < n; ++i) {
+        std::cout << result[i] << " ";
+    }
+    std::cout << std::endl;
+
+
+    for (size_t i = 0; i < k; ++i) {
+        delete[] array_of_iters[i].buf;
+    }
+    delete[] array_of_iters;
 
     return 0;
 }
