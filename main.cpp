@@ -1,12 +1,12 @@
 #include <iostream>
 
 ///// VECTOR
-const int MAX_SIZE = 5;  // TODO const static
-
 template<class T>
 class vector {
 public:
     vector(size_t size, T el = T(0), int maxsz = MAX_SIZE);
+
+    vector(T *arr, size_t size, int maxsz = MAX_SIZE);
 
     vector();
 
@@ -21,8 +21,6 @@ public:
     T operator[](int i) const;
 
     T &operator[](int i);
-
-    void sort();
 
     int get_size() const { return size; }
 
@@ -42,6 +40,8 @@ public:
     }
 
 protected:
+    static const int MAX_SIZE = 5;
+
     int maxsize;
     int size;
     T *pdata;
@@ -49,25 +49,27 @@ private:
     void resize();
 };
 
-// #include "vector.inl"
 template<class T>
-vector<T>::vector(size_t size, T el, int maxsz) : maxsize(maxsz), size(size) {
-    maxsize = (maxsz > size * 2 ? maxsz : size * 2);
+vector<T>::vector(size_t size, T el, int maxsz) : size(size) {
+    maxsize = (maxsz > size ? maxsz : size);
     pdata = new T[maxsize];
     for (int i = 0; i < size; ++i) {
         pdata[i] = el;
     }
-    /*for (int i = 1; i < maxsize; ++i) {
-        pdata[i] = T(0);                       // !!!!!!
-    }*/
+}
+
+template<class T>
+vector<T>::vector(T *arr, size_t size, int maxsz) : size(size) {
+    maxsize = (maxsz > size ? maxsz : size);
+    pdata = new T[maxsize];
+    for (int i = 0; i < size; ++i) {
+        pdata[i] = arr[i];
+    }
 }
 
 template<class T>
 vector<T>::vector() : maxsize(MAX_SIZE), size(0) {
     pdata = new T[maxsize];
-    /*for (int i = 0; i < maxsize; ++i) {
-        pdata[i] = T(0);                       // !!!!!!
-    }*/
 }
 
 template<class T>
@@ -116,35 +118,6 @@ T &vector<T>::operator[](int i) {
 }
 
 template<class T>
-void vector<T>::sort() {
-    T temp;
-
-    for (int i = 0; i < size; ++i) {
-        for (int j = i + 1; j < size; ++j) {
-            if (pdata[i] > pdata[j]) {
-                temp = pdata[i];
-                pdata[i] = pdata[j];
-                pdata[j] = temp;
-            }
-        }
-    }
-}
-
-/*template<>
-void vector<char *>::sort() {
-    char *temp;
-    for (int i = 0; i < size; ++i) {
-        for (int j = i + 1; j < size; ++j) {
-            if (strcmp(pdata[i], pdata[j]) > 0) {
-                temp = pdata[i];
-                pdata[i] = pdata[j];
-                pdata[j] = temp;
-            }
-        }
-    }
-}*/
-
-template<class T>
 int vector<T>::find(T el) {
     for (int i = 0; i < size; ++i) {
         if (strcmp(el, pdata[i]) == 0) {
@@ -171,34 +144,31 @@ vector<T> &vector<T>::operator=(const vector<T> &v) {
 
 template<class T>
 void vector<T>::resize() {
-    if (maxsize <= size) {
-        if (maxsize < 2) {
-            maxsize = MAX_SIZE;
-        } else {
-            maxsize *= 2;
-        }
+    if (maxsize <= size && maxsize < 2) {
+        maxsize = MAX_SIZE;
+    } else if (maxsize <= size) {
+        maxsize *= 2;
     } else {
         return;
     }
 
     T *newdata = new T[maxsize];
-    /*for (int i = 0; i < maxsize; ++i) {
-        newdata[i] = T(0);
-    }*/
     for (int i = 0; i < size; ++i) {
         newdata[i] = pdata[i];
     }
     delete[] pdata;
     pdata = newdata;
 }
-
 ////// VECTOR END
 
 template<typename T, typename Comparator = std::less <T>>
-class Heap {   // TODO конструктор по массиву
+class Heap {
 public:
     Heap(Comparator comp = Comparator()) : cmp(comp), arr() {}
-    // Heap() : cmp(Comparator()), arr() {}
+
+    Heap(T arr[], size_t size, Comparator comp = Comparator()) : cmp(comp), arr(arr, size) {
+        build_heap();
+    }
 
     Heap(size_t size, T el, Comparator comp = Comparator()) : cmp(comp), arr(size, el) {}
 
@@ -214,7 +184,7 @@ public:
     }
 
     T top() const {
-        return arr[0];  // почему копия
+        return arr[0];  // ?? ?????? ??? ?? ????????
     }
 
     void pop() {
@@ -267,44 +237,21 @@ private:
             arr[i] = temp;
         }
         sift_up(parent_ind);
-        /*while( i > 0 ) {
-            int parent = ( i - 1 ) / 2;
-            if( arr[i] <= arr[parent] )
-                return;
-            std::swap( arr[i], arr[parent] );
-            i = parent;
-        }*/
     }
 
     void build_heap() {
-        for (size_t i = arr.get_size() / 2 - 1; i >= 0; --i) {
+        size_t size = arr.get_size();
+        if (size == 0) return;
+        for (size_t i = size - 1; i > 0; --i) {
             sift_down(i);
         }
+        sift_down(0);
     }
 
     Comparator cmp;
 
     vector<T> arr;
 };
-
-void test() {
-    // auto lambda = [](int a, int b) { return a < b; };
-    Heap<int, std::less < int>>
-    heap((std::less<int>()));
-
-    heap.push(5);
-    heap.push(56);
-    heap.push(-7);
-    heap.push(99);
-    heap.push(3);
-
-    std::cout << heap;
-    heap.pop();
-    heap.pop();
-    heap.pop();
-
-    std::cout << heap;
-}
 
 struct array_iter {
     int *buf = nullptr;
@@ -315,15 +262,11 @@ struct array_iter {
 vector<int> heap_merge(array_iter array_of_iters[], size_t k, size_t n) {
     vector<int> res;
 
-    auto cmp = [](array_iter it1, array_iter it2) {
+    auto iter_cmp = [](array_iter it1, array_iter it2) {
         return it1.buf[it1.pos] > it2.buf[it2.pos];
     };
 
-    Heap<array_iter, decltype(cmp)> heap(cmp);
-
-    for (size_t i = 0; i < k; ++i) {
-        heap.push(array_of_iters[i]);
-    }
+    Heap<array_iter, decltype(iter_cmp)> heap(array_of_iters, k, iter_cmp);
 
     for (size_t i = 0; i < n; ++i) {
         array_iter top = heap.top();
