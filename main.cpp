@@ -1,5 +1,5 @@
 #include <iostream>
-#include <vector>  // test
+#include <vector>
 
 template<class T>
 struct Node {
@@ -16,7 +16,24 @@ struct Node {
 template<class T, typename Comparator = std::less<T>>
 class AVLTree {
 public:
-    AVLTree(Comparator cmp = Comparator()) : cmp(cmp) {}    
+    AVLTree(Comparator cmp = Comparator()) : cmp(cmp) {}
+    
+    AVLTree(const AVLTree<T> &copy_tree) : AVLTree(copy_tree.cmp) {
+        node_visit_and_copy(root, copy_tree.root);
+    } 
+
+    AVLTree<T> &operator=(const AVLTree<T> &copy_tree) {
+        if (this == &copy_tree) {
+            return *this;
+        }
+
+        node_visit_and_delete(root);
+        root = nullptr;
+        node_visit_and_copy(root, copy_tree.root);
+        cmp = copy_tree.cmp;
+
+        return *this;
+    }   
 
     ~AVLTree() {
         node_visit_and_delete(root);
@@ -43,6 +60,18 @@ public:
 
 
 private:
+    // COPY
+
+    static void node_visit_and_copy(Node<T> *&n, Node<T> *copy_node) {
+        if (copy_node == nullptr) {
+            return;
+        }
+        n = new Node<T>(copy_node->key);
+
+        node_visit_and_copy(n->left, copy_node->left);
+        node_visit_and_copy(n->right, copy_node->right);
+    }
+
     // DESTRUCT
 
     static void node_visit_and_delete(Node<T> *n) {
@@ -208,43 +237,35 @@ private:
     Node<T> *root = nullptr;
 };
 
-// template<class T/*, typename Comparator<T>*/>
-// T request(AVLTree/*<T, Comparator<T>>*/ &tree, const T &key, bool remove, const size_t pos) {
-//     if (remove) {
-//         tree.remove(key);
-//     } else {
-//         tree.insert(key);
-//     }
-//     return tree.k_th_statistics(pos);
-// }
 
-// struct request_t {
-//     int key;
-//     bool remove;
-//     size_t pos;
-// }
+struct request_t {
+    int key;
+    bool remove;
+    size_t pos;
+};
 
-// void tree_operations() {
-//     std::less<int> less;
-//     AVLTree<int, std::less<int>> tree(less);
-// }
-
-int request(AVLTree<int> &tree, const int key, bool remove, const size_t pos) {
-    if (remove) {
-        tree.remove(key);
+int request(AVLTree<int> &tree, const request_t &req) {
+    if (req.remove) {
+        tree.remove(req.key);
     } else {
-        tree.insert(key);
+        tree.insert(req.key);
     }
-    return tree.k_th_statistics(pos);
+    return tree.k_th_statistics(req.pos);
 }
 
-int main() {
+void tree_operations(const std::vector<request_t> &input, std::vector<int> &output) {
     std::less<int> less;
     AVLTree<int, std::less<int>> tree(less);
 
+    for(const request_t &req : input) {
+        output.push_back(request(tree, req));
+    }
+}
+
+int main() {
     size_t n;
     std::cin >> n;
-    // std::vector<
+    std::vector<request_t> input;
     for(size_t i = 0; i < n; ++i) {
         int key;
         size_t pos;
@@ -256,7 +277,13 @@ int main() {
         } else {
             remove = false;
         }
-        std::cout << request(tree, key, remove, pos) << std::endl;
+        input.push_back({key, remove, pos});
+    }
+
+    std::vector<int> res;
+    tree_operations(input, res);
+    for(int i : res) {
+        std::cout << i << std::endl;
     }
 
     return 0;
