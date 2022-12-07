@@ -1,14 +1,15 @@
 #include <iostream>
-#include <vector>
+#include <vector>  // input
 
 template<class T>
 struct Node {
     Node() : key(T()) {}
 
-    Node(const T &key) : key(key) {}  
+    Node(const T &key) : key(key) {}
 
     T key;
     size_t height = 1;
+    size_t count = 1;
     Node *right = nullptr;
     Node *left = nullptr;
 };
@@ -52,10 +53,8 @@ public:
     }
 
     T k_th_statistics(const size_t pos) const {
-        size_t counter = 0;
-        T found_key = 0;
-        node_k_th_statistics(root, pos, counter, found_key);
-        return found_key;
+        // if (pos > node_count(root) - 1) return baaad;
+        return node_k_th_statistics(root, pos)->key;
     }
 
 
@@ -67,6 +66,7 @@ private:
             return;
         }
         n = new Node<T>(copy_node->key);
+        n->count = copy_node->count;
 
         node_visit_and_copy(n->left, copy_node->left);
         node_visit_and_copy(n->right, copy_node->right);
@@ -86,19 +86,19 @@ private:
 
     // K_TH_STATISTICS
 
-    static void node_k_th_statistics(Node<T> *n, const size_t pos, size_t &counter, T &found_key) {
+    static Node<T> *node_k_th_statistics(Node<T> *n, const size_t pos) {
         if (n == nullptr) {
-            return;
+            return nullptr;
         }
 
-        node_k_th_statistics(n->left, pos, counter, found_key);
-
-        if (counter == pos) {
-            found_key = n->key;
+        size_t node_left_count = node_count(n->left);
+        if (pos == node_left_count) {
+            return n;
+        } else if (pos < node_left_count) {
+            return node_k_th_statistics(n->left, pos);
+        } else {
+            return node_k_th_statistics(n->right, pos - node_left_count - 1);
         }
-        counter++;
-
-        node_k_th_statistics(n->right, pos, counter, found_key);
     }
 
 
@@ -191,9 +191,24 @@ private:
         n->height = std::max(height_left, height_right) + 1;
     }
 
+    static void node_fix_count(Node<T> *n) {
+        size_t count_left = node_count(n->left);
+        size_t count_right = node_count(n->right);
+
+        n->count = count_left + count_right + 1;
+    }
+
     static size_t node_height(Node<T> *n) {
         if (n != nullptr) {
             return n->height;
+        } else {
+            return 0;
+        }
+    }
+
+    static size_t node_count(Node<T> *n) {
+        if (n != nullptr) {
+            return n->count;
         } else {
             return 0;
         }
@@ -204,7 +219,9 @@ private:
         n->left = q->right;
         q->right = n;
         node_fix_height(n);
+        node_fix_count(n);
         node_fix_height(q);
+        node_fix_count(q);
         return q;
     }
 
@@ -213,12 +230,15 @@ private:
         n->right = p->left;
         p->left = n;
         node_fix_height(n);
+        node_fix_count(n);
         node_fix_height(p);
+        node_fix_count(p);
         return p;
     }
 
     static Node<T> *node_balance(Node<T> *n) {
         node_fix_height(n);
+        node_fix_count(n);
         if (node_balance_factor(n) == 2 && node_balance_factor(n->right) < 0) {
             n->right = node_rotate_right(n->right);
             return node_rotate_left(n);
