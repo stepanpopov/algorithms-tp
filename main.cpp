@@ -2,14 +2,14 @@
 #include <queue>
 #include <vector>
 
-template<class T, class Comparator>
+template<class T, class Comparator = std::less<T>>
 class BinTree {
 public:
 
-    BinTree(Comparator cmp) : cmp(cmp) {}
+    BinTree(Comparator cmp = Comparator()) : cmp(cmp) {}
 
     ~BinTree() {
-        nodes_delete(root);
+        delete_nodes();
     }
 
     void insert(const T& key) {
@@ -23,12 +23,14 @@ public:
             if (cmp(key,node->key)) {
                 if (node->left == nullptr) {
                     node->left = new Node(key);
+                    node->left->parent = node;
                     return;
                 }
                 node = node->left;
             } else {
                 if (node->right == nullptr) {
                     node->right = new Node(key);
+                    node->right->parent = node;
                     return;
                 }
                 node = node->right;
@@ -56,6 +58,40 @@ public:
         }
     }
 
+    template<typename Visit>
+    void post_order(Visit visit) {
+        if (root == nullptr) {
+            return;
+        }
+        Node *node = root;
+        while(true) {
+            if (node->left == nullptr && node->right == nullptr) {
+                while (true) {   // подъем вверх по дереву
+                    visit(node->key);
+                    if (node == root) {
+                        return;
+                    }
+                    if (node->parent->left == node) {   // если мы пришли из левого ребенка, то поднимаемся, идем в правый и выходим из while подъема
+                        node = node->parent;
+                        if (node->right != nullptr) {
+                            node = node->right;
+                            break;
+                        }
+                    } else if (node->parent->right == node) {   // если мы пришли из правого ребенка, то поднимаемся и отдаем в visit
+                        node = node->parent;
+                    }
+                }
+            }
+
+            while(node->left != nullptr) {
+                node = node->left;
+            }
+            if (node->right != nullptr) {
+                node = node->right;
+            }
+        }
+    }
+
 private:
     struct Node {
         Node() : key(0) {}
@@ -63,25 +99,23 @@ private:
         Node(const int &key) : key(key) {}
 
         T key;
+        Node *parent = nullptr;
         Node *right = nullptr; 
         Node *left = nullptr;
     };
 
-    void nodes_delete(Node *n) {
-        if (n == nullptr) {
-            return;
-        }
-        nodes_delete(n->left);
-        nodes_delete(n->right);
-
-        delete n;
+    void delete_nodes() {
+        auto delete_visit = [&output](const int &key) {
+            output.push_back(key);
+        };
+        post_order(delete_visit);
     }
 
     Comparator cmp;
     Node *root = nullptr;
 };
 
-void bfs(const std::vector<int> &input, std::vector<int> &output) {
+void bfs_to_output(const std::vector<int> &input, std::vector<int> &output) {
     std::less<int> less;
     BinTree<int, std::less<int>> bin_tree(less);
     for(int el : input) {
@@ -94,7 +128,26 @@ void bfs(const std::vector<int> &input, std::vector<int> &output) {
     bin_tree.level_order(lmd);
 }
 
+void test() {
+    std::less<int> less;
+    BinTree<int, std::less<int>> bin_tree(less);
+
+    bin_tree.insert(8);
+    bin_tree.insert(6);
+    bin_tree.insert(7);
+    // bin_tree.insert(8);
+    bin_tree.insert(11);
+    bin_tree.insert(10);
+    bin_tree.insert(12);
+
+    bin_tree.test();
+
+}
+
 int main() {
+    test();
+
+
     int n;
     std::cin >> n;
 
@@ -106,11 +159,11 @@ int main() {
     }
 
     std::vector<int> output;
-    bfs(input, output);
+    bfs_to_output(input, output);
     for (int &el : output) {
         std::cout << el << " ";
     }
     std::cout << std::endl;
 }
 
-// TODO delete remove?
+// TODO переделать обходы в private 
