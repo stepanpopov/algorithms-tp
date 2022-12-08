@@ -40,6 +40,35 @@ public:
 
     template<typename Visit>
     void level_order(Visit visit) {
+        auto lmd_by_key = [&visit](Node *n) {
+            visit(n->key);
+        };
+        node_level_order(lmd_by_key);
+    }
+
+    template<typename Visit>
+    void post_order(Visit visit) {
+        auto lmd_by_key = [&visit](Node *n) {
+            visit(n->key);
+        };
+        node_post_order(lmd_by_key);
+    }
+
+    
+private:
+    struct Node {
+        Node() : key(0) {}
+
+        Node(const int &key) : key(key) {}
+
+        T key;
+        Node *parent = nullptr;
+        Node *right = nullptr; 
+        Node *left = nullptr;
+    };
+
+    template<typename Visit>
+    void node_level_order(Visit visit) {
         if (root == nullptr) {
             return;
         }
@@ -48,7 +77,7 @@ public:
         while(!q.empty()) {
             Node *node = q.front();
             q.pop();
-            visit(node->key);
+            visit(node);
             if (node->left != nullptr) {
                 q.push(node->left);
             }
@@ -59,7 +88,7 @@ public:
     }
 
     template<typename Visit>
-    void post_order(Visit visit) {
+    void node_post_order(Visit visit) {
         if (root == nullptr) {
             return;
         }
@@ -67,18 +96,19 @@ public:
         while(true) {
             if (node->left == nullptr && node->right == nullptr) {
                 while (true) {   // подъем вверх по дереву
-                    visit(node->key);
+                    Node *parent = node->parent;
+                    visit(node);
                     if (node == root) {
                         return;
                     }
-                    if (node->parent->left == node) {   // если мы пришли из левого ребенка, то поднимаемся, идем в правый и выходим из while подъема
-                        node = node->parent;
+                    if (parent->left == node) {   // если мы пришли из левого ребенка, то поднимаемся, идем в правый и выходим из while подъема
+                        node = parent;
                         if (node->right != nullptr) {
                             node = node->right;
                             break;
                         }
-                    } else if (node->parent->right == node) {   // если мы пришли из правого ребенка, то поднимаемся и отдаем в visit
-                        node = node->parent;
+                    } else if (parent->right == node) {   // если мы пришли из правого ребенка, то поднимаемся и отдаем в visit
+                        node = parent;
                     }
                 }
             }
@@ -92,23 +122,11 @@ public:
         }
     }
 
-private:
-    struct Node {
-        Node() : key(0) {}
-
-        Node(const int &key) : key(key) {}
-
-        T key;
-        Node *parent = nullptr;
-        Node *right = nullptr; 
-        Node *left = nullptr;
-    };
-
     void delete_nodes() {
-        auto delete_visit = [&output](const int &key) {
-            output.push_back(key);
+        auto delete_visit = [](Node *node) {
+            delete node;
         };
-        post_order(delete_visit);
+        node_post_order(delete_visit);
     }
 
     Comparator cmp;
@@ -128,26 +146,7 @@ void bfs_to_output(const std::vector<int> &input, std::vector<int> &output) {
     bin_tree.level_order(lmd);
 }
 
-void test() {
-    std::less<int> less;
-    BinTree<int, std::less<int>> bin_tree(less);
-
-    bin_tree.insert(8);
-    bin_tree.insert(6);
-    bin_tree.insert(7);
-    // bin_tree.insert(8);
-    bin_tree.insert(11);
-    bin_tree.insert(10);
-    bin_tree.insert(12);
-
-    bin_tree.test();
-
-}
-
 int main() {
-    test();
-
-
     int n;
     std::cin >> n;
 
@@ -165,5 +164,3 @@ int main() {
     }
     std::cout << std::endl;
 }
-
-// TODO переделать обходы в private 
