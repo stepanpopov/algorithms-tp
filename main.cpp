@@ -1,5 +1,5 @@
 #include <iostream>
-#include <vector>  // input
+#include <vector>
 
 template<class T>
 struct Node {
@@ -136,21 +136,6 @@ private:
 
     // REMOVE
 
-    static Node<T> *node_find_min(Node<T> *n) {
-        if (n->left == nullptr) {
-            return n;
-        }
-        return node_find_min(n->left);
-    }
-
-    static Node<T> *node_without_min(Node<T> *n) {
-        if (n->left == nullptr) {
-            return n->right;
-        }
-        n->left = node_without_min(n->left);
-        return node_balance(n);
-    }
-
     Node<T> *node_remove(Node<T> *n, const int &key) {
         if (n == nullptr) {
             return nullptr;
@@ -168,8 +153,24 @@ private:
                 return node_left;
             }
 
-            Node<T> *node_min = node_find_min(node_right);
-            node_min->right = node_without_min(node_right);
+            Node<T> *node_min = node_right;
+            std::vector<Node<T>*> node_stack;
+            node_stack.push_back(node_right);
+
+            while(node_min->left != nullptr) {
+                node_min = node_min->left;
+                node_stack.push_back(node_min);
+            }
+            node_stack.pop_back();
+
+            Node<T> *balanced = node_min->right;
+            while(!node_stack.empty()) {
+                node_stack.back()->left = balanced;
+                balanced = node_balance(node_stack.back());
+                node_stack.pop_back();
+            }
+            node_min->right = balanced;
+
             node_min->left = node_left;
 
             return node_balance(node_min);
