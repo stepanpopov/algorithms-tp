@@ -1,16 +1,15 @@
-#include <vector>
 #include <iostream>
-#include <cassert>
 #include <string>
+#include <vector>
 
-using std::string;
-using std::vector;
+static constexpr int HASH_TABLE_DEFAULT_SIZE = 8;
+static constexpr float HASH_TABLE_MAX_KEYS_FILL = 3 / 4;
+static constexpr float HASH_TABLE_MAX_DELETE_FILL = 1 / 4;
 
-const int HashTableDefaultSize = 8;
-const int MaxFill = 3;
 
+// HASHER
 struct StringHasher {
-	unsigned int operator()(const string& str) const {
+	unsigned int operator()(const std::string& str) const {
 		unsigned int hash = 0;
 		for (unsigned int i = 0; i < str.length(); ++i) {
 			hash = hash * 127 + str[i];
@@ -21,137 +20,159 @@ struct StringHasher {
 };
 
 
-template<class T, class Hash>
-class HashTable {
+// PROBING
+// h(k, i)=h(k, i-1) + i (mod m). m - степень двойки
+// size_t h(unsigned int ) {
+// }
+
+
+// HASH_TABLE
+template <class T, class Hash>
+class Hash_table {
 public:
-	HashTable(const Hash& _hasher = Hash());
-	~HashTable();
+	Hash_table(const Hash& hasher = Hash()) : 	conditions(HASH_TABLE_DEFAULT_SIZE, EMPTY),
+												keys(HASH_TABLE_DEFAULT_SIZE),
+												hasher(hasher) {}
 
-	bool Has(const T& key) const;
-	bool Add(const T& key);
-	bool Delete(const T& key);
+	Hash_table(const Hash_table& table) = default;
+
+	Hash_table &operator=(const Hash_table& table) = default;
+
+	~Hash_table() = default;
+
+	bool has(const T& key) const {
+		unsigned int hash = hasher(key) % keys.size();
+
+		for (size_t i = 0;; ++i) {
+			switch (conditions[hash]) {
+				case EMPTY: {
+					return false;
+					break;
+				}
+				case DELETED: {
+					break;
+				}
+				case KEY: {
+					if (keys[hash] == key) {
+						return true;
+					}
+					break;
+				}
+			}
+			hash = (hash + i) % keys.size();  // Probing
+		}
+	}
+
+	bool add(const T& key) {
+		/* if (keys_count >= keys.size() * HASH_TABLE_MAX_KEYS_FILL) {
+			grow_if_keys_filled();
+		} */
+
+		unsigned int hash = hasher(key) % keys.size();
+
+		bool deleted_found = false;
+		unsigned int deleted_hash = 0;
+
+		for (size_t i = 0;; ++i) {
+			switch (conditions[hash]) {
+				case EMPTY: {
+					if (deleted_found) {
+						keys[deleted_hash] = key;
+						conditions[deleted_hash] = KEY;
+						keys_count++;
+						delete_count--;
+					} else {
+						keys[hash] = key;
+						conditions[hash] = KEY;
+						keys_count++;
+					}
+					return true;
+					break;
+				}
+				case DELETED: {
+					if (!deleted_found) {
+						deleted_found = true;
+						deleted_hash = hash;
+					}
+					break;
+				}
+				case KEY: {
+					if (keys[hash] == key) {
+						return false;
+					}
+					break;
+				}
+			}
+			hash = (hash + i) % keys.size();  // Probing
+		}
+	}
+
+	bool remove(const T& key) {
+		/* if (delete_count >= keys.size() * HASH_TABLE_MAX_DELETE_FILL) {
+			grow_if_delete_filled();
+		} */
+
+		unsigned int hash = hasher(key) % keys.size();
+
+		for (size_t i = 0;; ++i) {
+			switch (conditions[hash]) {
+				case EMPTY: {
+					return false;
+					break;
+				}
+				case DELETED: {
+					break;
+				}
+				case KEY: {
+					if (keys[hash] == key) {
+						conditions[hash] = DELETED;
+						keys_count--;
+						delete_count++;
+						return true;
+					}
+					break;
+				}
+			}
+			hash = (hash + i) % keys.size();  // Probing
+		}
+	}
+
 private:
-	void grow();
-	struct HashTableNode {
-		T Data;
-		HashTableNode* Next;
+	// void grow_if_keys_filled();
+	// void grow_if_delete_filled();
 
-		HashTableNode(const T& key, HashTableNode* next = nullptr) : Data(key), Next(next) {}
+	// PROBING
+	// size_t h(const int &key, size_t i) {
+	// }
+	enum Condition {
+		EMPTY = 0,
+		DELETED,
+		KEY
 	};
+	
+	std::vector<Condition> conditions;
+	std::vector<T> keys;
 
 	Hash hasher;
-	vector<HashTableNode*> table;
-	unsigned int keysCount;
+	size_t keys_count = 0;
+	size_t delete_count = 0;
 };
 
-template<class T, class Hash>
-HashTable<T, Hash>::HashTable(const Hash& _hasher) :
-	hasher(_hasher),
-	table(HashTableDefaultSize, nullptr),
-	keysCount(0) { }
 
-template<class T, class Hash>
-HashTable<T, Hash>::~HashTable() {
-	for (unsigned int i = 0; i < table.size(); ++i) {
-		HashTableNode* node = table[i];
-		while (node != nullptr) {
-			HashTableNode* nextNode = node->Next;
-			delete node;
-			node = nextNode;
-		}
-	}
-}
 
-template<class T, class Hash>
-bool HashTable<T, Hash>::Has(const T& key) const {
-	int hash = hasher(key) % table.size();
-	HashTableNode* node = table[hash];
-	while (node != nullptr && node->Data != key)
-		node = node->Next;
 
-	return node != nullptr;
-}
-
-template<class T, class Hash>
-bool HashTable<T, Hash>::Add(const T& key) {
-	// Не хорошо так делать
-	if (Has(key)) {
-		return false;
-	}
-	//
-	if (keysCount + 1 > table.size() * MaxFill) {
-		grow();
-	}
-
-	int hash = hasher(key) % table.size();
-	table[hash] = new HashTableNode(key, table[hash]);
-	++keysCount;
-
-	return true;
-}
-
-template<class T, class Hash>
-bool HashTable<T, Hash>::Delete(const T& key)
-{
-	int hash = hasher(key) % table.size();
-	HashTableNode* prevNode = nullptr;
-	HashTableNode* node = table[hash];
-	while (node != nullptr && node->Data != key) {
-		prevNode = node;
-		node = node->Next;
-	}
-
-	if (node == nullptr)
-		return false;
-
-	if (prevNode != nullptr) {
-		prevNode->Next = node->Next;
-	}
-	else {
-		table[hash] = node->Next;
-	}
-
-	delete node;
-	return true;
-}
-
-template<class T, class Hash>
-void HashTable<T, Hash>::grow()
-{
-	vector<HashTableNode*> newTable(table.size() * 2, nullptr);
-	for (unsigned int i = 0; i < table.size(); ++i) {
-		HashTableNode* node = table[i];
-		while (node != nullptr) {
-			HashTableNode* nextNode = node->Next;
-			
-			int newHash = hasher(node->Data) % newTable.size();
-			node->Next = newTable[newHash];
-			newTable[newHash] = node;
-
-			node = nextNode;
-		}
-	}
-	table = newTable;
-}
 
 int main() {
-	HashTable<string, StringHasher> table;
-	char operation = 0;
-	string word;
-	while (std::cin >> operation >> word) {
-		if (operation == '+') {
-			std::cout << (table.Add(word) ? "OK" : "FAIL") << std::endl;
-		}
-		if (operation == '-') {
-			std::cout << (table.Delete(word) ? "OK" : "FAIL") << std::endl;
-		}
-		if (operation == '?') {
-			std::cout << (table.Has(word) ? "OK" : "FAIL") << std::endl;
-		}
-	}
+	Hash_table<std::string, StringHasher> table;
+	std::cout << table.add("AAAA");
+	std::cout << table.has("AAAA");
+	std::cout << table.remove("AAAA");
+	std::cout << table.has("AAAA");
+	std::cout << table.has("AA");
 
 	return 0;
 }
+
 
 // Has
 // Empty - return false;
