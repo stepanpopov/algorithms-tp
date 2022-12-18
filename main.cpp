@@ -26,8 +26,8 @@ template <class T, class Hash>
 class Hash_table {
 public:
 	Hash_table(const Hash& hasher = Hash()) : 	conditions(HASH_TABLE_DEFAULT_SIZE, EMPTY),
-												keys(HASH_TABLE_DEFAULT_SIZE),
-												hasher(hasher) {}
+							keys(HASH_TABLE_DEFAULT_SIZE),
+							hasher(hasher) {}
 
 	Hash_table(const Hash_table& table) = default;
 
@@ -175,7 +175,7 @@ private:
 		DELETED,
 		KEY
 	};
-	
+
 	std::vector<Condition> conditions;
 	std::vector<T> keys;
 
@@ -189,10 +189,10 @@ void test() {
 	std::string s = "abcdef";
 	std::sort(s.begin(), s.end());
 	std::vector<std::string> input;
-    do {
-        input.push_back(s);
-    } while(std::next_permutation(s.begin(), s.end()));
-	
+    	do {
+        	input.push_back(s);
+    	} while(std::next_permutation(s.begin(), s.end()));
+
 	Hash_table<std::string, StringHasher> table;
 	for (int i = 0; i < 500; i++) {
 		assert(table.add(input[i]));
@@ -251,7 +251,9 @@ void requests(const std::vector<request_t>& input, std::vector<std::string> &out
 
 		if (res) {
 			output.push_back("OK");
-		} else output.push_back("FAIL");
+		} else {
+			output.push_back("FAIL");
+		}
 	}
 }
 
@@ -270,6 +272,6 @@ int main() {
 	for (const std::string &str : output) {
 		std::cout << str << std::endl;
 	}
-	
+
 	return 0;
 }
