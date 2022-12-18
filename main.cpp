@@ -1,10 +1,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <algorithm>  // std::fill
+#include <cassert>  // test()
 
 static constexpr int HASH_TABLE_DEFAULT_SIZE = 8;
-static constexpr float HASH_TABLE_MAX_KEYS_FILL = 3 / 4;
-static constexpr float HASH_TABLE_MAX_DELETE_FILL = 1 / 4;
+static constexpr float HASH_TABLE_MAX_KEYS_FILL = 0.75;
+static constexpr float HASH_TABLE_MAX_DELETE_FILL = 0.25;
 
 
 // HASHER
@@ -14,16 +16,9 @@ struct StringHasher {
 		for (unsigned int i = 0; i < str.length(); ++i) {
 			hash = hash * 127 + str[i];
 		}
-
 		return hash;
 	}
 };
-
-
-// PROBING
-// h(k, i)=h(k, i-1) + i (mod m). m - степень двойки
-// size_t h(unsigned int ) {
-// }
 
 
 // HASH_TABLE
@@ -64,9 +59,10 @@ public:
 	}
 
 	bool add(const T& key) {
-		/* if (keys_count >= keys.size() * HASH_TABLE_MAX_KEYS_FILL) {
-			grow_if_keys_filled();
-		} */
+		if (keys_count >= keys.size() * HASH_TABLE_MAX_KEYS_FILL) {
+			// std::cout << "grow()" << "keys_count " << keys_count << std::endl;
+			grow();
+		}
 
 		unsigned int hash = hasher(key) % keys.size();
 
@@ -108,9 +104,10 @@ public:
 	}
 
 	bool remove(const T& key) {
-		/* if (delete_count >= keys.size() * HASH_TABLE_MAX_DELETE_FILL) {
-			grow_if_delete_filled();
-		} */
+		if (delete_count >= keys.size() * HASH_TABLE_MAX_DELETE_FILL) {
+			// std::cout << "deleted_clear() " << "keys_count " << keys_count << " deleted_count " << delete_count << std::endl;
+			deleted_clear();
+		}
 
 		unsigned int hash = hasher(key) % keys.size();
 
@@ -138,12 +135,41 @@ public:
 	}
 
 private:
-	// void grow_if_keys_filled();
-	// void grow_if_delete_filled();
+	void grow() {
 
-	// PROBING
-	// size_t h(const int &key, size_t i) {
-	// }
+		std::vector<Condition> old_conditions(std::move(conditions));
+		std::vector<T> old_keys(std::move(keys));
+
+		conditions.clear();
+		conditions.resize(old_conditions.size() * 2, EMPTY);
+
+		keys.clear();
+		keys.resize(old_keys.size() * 2);
+		keys_count = 0;
+
+		for (size_t i = 0; i < old_keys.size(); ++i) {
+			if (old_conditions[i] == KEY) {
+				add(old_keys[i]);
+			}
+		}
+		delete_count = 0;
+	}
+
+	void deleted_clear() {
+		std::vector<Condition> old_conditions(conditions);
+		std::vector<T> old_keys(keys);
+
+		std::fill(conditions.begin(), conditions.end(), EMPTY);
+		keys_count = 0;
+
+		for (size_t i = 0; i < old_keys.size(); ++i) {
+			if (old_conditions[i] == KEY) {
+				add(old_keys[i]);
+			}
+		}
+		delete_count = 0;
+	}
+
 	enum Condition {
 		EMPTY = 0,
 		DELETED,
@@ -159,36 +185,91 @@ private:
 };
 
 
-
-
-
-int main() {
+void test() {
+	std::string s = "abcdef";
+	std::sort(s.begin(), s.end());
+	std::vector<std::string> input;
+    do {
+        input.push_back(s);
+    } while(std::next_permutation(s.begin(), s.end()));
+	
 	Hash_table<std::string, StringHasher> table;
-	std::cout << table.add("AAAA");
-	std::cout << table.has("AAAA");
-	std::cout << table.remove("AAAA");
-	std::cout << table.has("AAAA");
-	std::cout << table.has("AA");
+	for (int i = 0; i < 500; i++) {
+		assert(table.add(input[i]));
+	}
+	for (int i = 0; i < 500; i++) {
+		assert(!table.add(input[i]));
+	}
 
-	return 0;
+	for (int i = 0; i < 500; i++) {
+		assert(table.has(input[i]));
+	}
+
+	for (int i = 0; i < 500; i++) {
+		assert(table.remove(input[i]));
+	}
+	for (int i = 0; i < 500; i++) {
+		assert(!table.remove(input[i]));
+	}
+
+	assert(!table.has("abcdef"));
+	assert(!table.has("AA"));
+
+	for (int i = 0; i < 720; i++) {
+		assert(table.add(input[i]));
+	}
+
+	for (int i = 0; i < 720; i++) {
+		assert(table.has(input[i]));
+	}
+
+	for (int i = 0; i < 720; i++) {
+		assert(table.remove(input[i]));
+	}
 }
 
+struct request_t {
+	char operation;
+	std::string key;
+};
 
-// Has
-// Empty - return false;
-// Deleted - идём дальше;
-// Key - если искомый - return true, иначе идём дальше
+void requests(const std::vector<request_t>& input, std::vector<std::string> &output) {
+	Hash_table<std::string, StringHasher> table;
+	for (const request_t &req : input) {
+		bool res;
+		switch (req.operation) {
+			case '+' :
+				res = table.add(req.key);
+				break;
+			case '-' :
+				res = table.remove(req.key);
+				break;
+			case '?' :
+				res = table.has(req.key);
+				break;
+		}
 
-// Add
-// Empty - записываем Key ( в первый запомненный Deleted, если есть, либо сюда) и return true;
-// Deleted - если первый Deleted - запоминаем, иначе идём дальше;
-// Key - если добавляемый - return false, иначе идём дальше.
+		if (res) {
+			output.push_back("OK");
+		} else output.push_back("FAIL");
+	}
+}
 
-// Delete
-// Empty - return false;
-// Deleted - идём дальше;
-// Key - если удаляемый - ставим Deleted и return true, иначе идём дальше;
+int main() {
+	// test();
 
-// + два перехеширования
-// При большом количестве ключей (3/4) с увеличением размера таблицы
-// При большом количестве Deleted (1/4) с сохранением размера таблицы
+	char operation;
+	std::string key;
+	std::vector<request_t> input;
+	while (std::cin >> operation >> key) {
+		input.push_back({operation, key});
+	}
+
+	std::vector<std::string> output;
+	requests(input, output);
+	for (const std::string &str : output) {
+		std::cout << str << std::endl;
+	}
+	
+	return 0;
+}
