@@ -1,218 +1,98 @@
-#include <vector>
 #include <iostream>
-#include <unordered_set>
+#include <cstdlib>
+#include <ctime>
+#include <cassert>
+#include <vector>
+#include <set>
 
-struct IGraph {
-    virtual ~IGraph() {}
-	
-    virtual void AddEdge(int from, int to) = 0;
+#include "SetGraph.hpp"
+#include "ArcGraph.hpp"
+#include "ListGraph.hpp"
+#include "MatrixGraph.hpp"
 
-	virtual int VerticesCount() const  = 0;
+#define N 1000
+#define M 10000
 
-    virtual std::vector<int> GetNextVertices(int vertex) const = 0;
-    virtual std::vector<int> GetPrevVertices(int vertex) const = 0;
+struct edge_t {
+    int from;
+    int to;
 };
 
+void fill(IGraph &graph, const std::vector<edge_t> &edges) {
+    for (const edge_t &edge : edges) {
+        graph.AddEdge(edge.from, edge.to);
+    }
+}
 
+std::set<int> get_next_ordered(const IGraph &graph, int vertex) {
+    std::vector<int> v = graph.GetNextVertices(vertex);
+    return std::set(v.begin(), v.end());
+}
 
-// LIST GRAPH
-class ListGraph : IGraph {
-public:
-    ListGraph(size_t num) : adjLists(num),
-                            reverseAdjLists(num) {}
+std::set<int> get_prev_ordered(const IGraph &graph, int vertex) {
+    std::vector<int> v = graph.GetPrevVertices(vertex);
+    return std::set(v.begin(), v.end());
+}
 
-    ListGraph(const IGraph &graph) : ListGraph(graph.VerticesCount()) {
-
-        for (int from = 0; from < adjLists.size(); ++from) {
-            std::vector<int> nextVertices = graph.GetNextVertices(from);
-            for (const int &to : nextVertices) {
-                adjLists[from].push_back(to);
-                reverseAdjLists[to].push_back(from);
-            }
-        }
+void test() {
+    std::vector<edge_t> edges;
+    std::srand(std::time(nullptr));
+    for (int i = 0; i < M; ++i) {
+        int from = rand() % N;
+        int to = rand() % N;
+        edges.push_back({from, to});
     }
 
-    virtual void AddEdge(int from, int to) override {
-        adjLists[from].push_back(to);
-        reverseAdjLists[to].push_back(from);
+    /*ListGraph *g1 = new ListGraph(N);
+    MatrixGraph *g2 = new MatrixGraph(N);
+    ArcGraph *g3 = new ArcGraph(N);
+    SetGraph *g4 = new SetGraph(N);
+
+    fill(*g1, edges);
+    fill(*g2, edges);
+    fill(*g3, edges);
+    fill(*g4, edges);*/
+
+    ListGraph *g1 = new ListGraph(N);
+    fill(*g1, edges);
+    MatrixGraph *g2 = new MatrixGraph(*g1);
+    ArcGraph *g3 = new ArcGraph(*g2);
+    SetGraph *g4 = new SetGraph(*g3);
+
+
+    std::cout << "NEXT\n"; 
+    for (int i = 0; i < N; ++i) {
+        auto s1 = get_next_ordered(*g1, i);
+        auto s2 = get_next_ordered(*g2, i);
+        auto s3 = get_next_ordered(*g3, i);
+        auto s4 = get_next_ordered(*g4, i);
+
+        assert(s1 == s2);
+        assert(s3 == s4);
+        assert(s1 == s3);
     }
 
-    virtual int VerticesCount() const override {
-        return adjLists.size();
+    std::cout << "PREV\n";
+    for (int i = 0; i < N; ++i) {
+        auto s1 = get_prev_ordered(*g1, i);
+        auto s2 = get_prev_ordered(*g2, i);
+        auto s3 = get_prev_ordered(*g3, i);
+        auto s4 = get_prev_ordered(*g4, i);
+
+        assert(s1 == s2);
+        assert(s3 == s4);
+        assert(s1 == s3);
     }
 
-    virtual std::vector<int> GetNextVertices(int vertex) const override {
-        return adjLists[vertex];
-    }
-
-    virtual std::vector<int> GetPrevVertices(int vertex) const override {
-        return reverseAdjLists[vertex];
-    }
-
-
-private:
-    std::vector<std::vector<int>> adjLists;
-    std::vector<std::vector<int>> reverseAdjLists;
-};
-
-
-
-// MATRIX GRAPH
-class MatrixGraph : public IGraph {
-public:
-    MatrixGraph(size_t num) : vertices_num(num), matrix(num * num, 0) {}
-
-    MatrixGraph(const IGraph &graph) : MatrixGraph(graph.VerticesCount()) {
-
-        for (int from = 0; from < vertices_num; ++from) {
-            std::vector<int> nextVertices = graph.GetNextVertices(from);
-            for (const int &to : nextVertices) {
-                matrix[from * vertices_num + to] = 1;
-            }
-        }
-    }
-
-    virtual void AddEdge(int from, int to) override {
-        matrix[from * vertices_num + to] = 1;
-    }
-
-    virtual int VerticesCount() const override {
-        return vertices_num;
-    }
-
-    virtual std::vector<int> GetNextVertices(int vertex) const override {
-        std::vector<int> nextVertices;
-        for (int i = 0; i < vertices_num; ++i) {
-            if (matrix[vertex * vertices_num + i] == 1) {
-                nextVertices.push_back(i);
-            }
-        }
-
-        return nextVertices;
-    }
-
-    virtual std::vector<int> GetPrevVertices(int vertex) const override {
-        std::vector<int> prevVertices;
-        for (int i = 0; i < vertices_num; ++i) {
-            if (matrix[i * vertices_num + vertex] == 1) {
-                prevVertices.push_back(i);
-            }
-        }
-
-        return prevVertices;
-    }
-
-private:
-    int vertices_num = 0;
-    std::vector<char> matrix;
-};
-
-
-
-// SET GRAPH
-class SetGraph : public IGraph {
-public:
-    SetGraph(size_t num) : sets(num) {}
-
-    SetGraph(const IGraph &graph) : SetGraph(graph.VerticesCount()) {
-        for (int from = 0; from < sets.size(); ++from) {
-            std::vector<int> nextVertices = graph.GetNextVertices(from);
-            for (const int &to : nextVertices) {
-                sets[from].insert(to);
-            }
-        }
-    }
-    
-    virtual void AddEdge(int from, int to) override {
-        sets[from].insert(to);
-    }
-
-	virtual int VerticesCount() const override {
-        return sets.size();
-    }
-
-    virtual std::vector<int> GetNextVertices(int vertex) const override {
-        return std::vector<int>(sets[vertex].begin(), sets[vertex].end());
-    }
-
-    virtual std::vector<int> GetPrevVertices(int vertex) const override {
-        std::vector<int> prevVertices;
-        for (int i = 0; i < sets.size(); ++i) {
-            if (sets[i].find(vertex) == sets[i].end()) {
-                prevVertices.push_back(i);
-            }
-        }
-        return prevVertices;
-    }
-
-    bool HasEdge(int to, int from) const {
-        return (sets[to].find(from) != sets[to].end());
-    }
-
-private:
-    std::vector<std::unordered_set<int>> sets;
-};
-
-
-
-// ARC GRAPH
-class ArcGraph : public IGraph {
-public:
-    ArcGraph(size_t num) : vertices_num(num) {
-        edges.reserve(num);
-    }
-
-    ArcGraph(const IGraph &graph) : ArcGraph(graph.VerticesCount()) {
-        for (int from = 0; from < vertices_num; ++from) {
-            std::vector<int> nextVertices = graph.GetNextVertices(from);
-            for (const int &to : nextVertices) {
-                edges.emplace_back(from, to);
-            }
-        }
-    }
-	
-    virtual void AddEdge(int from, int to) override {
-        edges.emplace_back(from, to);
-    }
-
-	virtual int VerticesCount() const override {
-        return vertices_num;
-    }
-
-    virtual std::vector<int> GetNextVertices(int vertex) const override {
-        std::vector<int> nextVertices;
-        for (const pair &p : edges) {
-            if (p.from == vertex) {
-                nextVertices.push_back(p.to);
-            }
-        }
-        return nextVertices;
-    }
-
-    virtual std::vector<int> GetPrevVertices(int vertex) const override {
-        std::vector<int> prevVertices;
-        for (const pair &p : edges) {
-            if (p.to == vertex) {
-                prevVertices.push_back(p.from);
-            }
-        }
-        return prevVertices;
-    }
-
-private:
-    struct pair {
-        pair(int from, int to) : from(from), to(to) {}
-
-        int from;
-        int to;
-    };
-    int vertices_num = 0;
-    std::vector<pair> edges;
-};
-
+    delete g1;
+    delete g2;
+    delete g3;
+    delete g4;
+}
 
 int main() {
+    test();
 
-
+    std::cout << "SUCCESS\n";
     return 0;
 }
