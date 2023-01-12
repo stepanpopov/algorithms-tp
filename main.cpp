@@ -126,21 +126,15 @@ bool GameState::isFinish() const {
 bool GameState::hasSolution() const {
     int invCount = 0;
     for (int i = 0; i < FieldSize; ++i) {
-        for (int j = i + 1; j < FieldSize; ++j) {
-            if (field[j] == 0) {
-                continue;
-            } else if (field[i] > field[j]) {
-                invCount++;
-            }
-        }
+		for (int j = i + 1; j < FieldSize; ++j) {
+			if (field[j] != 0 && field[i] > field[j]) {
+				invCount++;
+			}
+		}
     }
     int zeroRow = (zeroPos / SideSize) + 1;
 
-    if ((invCount + zeroRow) % 2 == 0) {
-        return true;
-    } else {
-        return false;
-    }
+    return ((invCount + zeroRow) % 2 == 0);
 }
 
 int GameState::Heuristic() const {
@@ -195,16 +189,16 @@ std::string getSolution(const GameState& state) {
         return "-1";
     }
 
-	std::set<GameState> queue;
+	std::multiset<GameState> queue;
 	queue.insert(state);
 	std::unordered_map<GameState, char, StateHasher> visited;
 	visited[state] = 'S';
-	bool hasSolution = false;
+	bool solutionFound = false;
 	while (!queue.empty()) {
 		GameState current = *queue.begin();
 		queue.erase(queue.begin());
 		if (current.isFinish()) {
-			hasSolution = true;
+			solutionFound = true;
 			break;
 		}
 
@@ -217,7 +211,7 @@ std::string getSolution(const GameState& state) {
 		}
 	}
 
-	assert(hasSolution);
+	assert(solutionFound);
 	std::string result;
 	GameState current(FinishField);
 	char move = visited[current];
@@ -272,8 +266,8 @@ void test(const std::array<char, FieldSize> &startField, const std::string &way)
 }
 
 int main() {
-    std::array<char, 16> startField;
-    for (char i = 0; i < 16; ++i) {
+    std::array<char, FieldSize> startField;
+    for (char i = 0; i < FieldSize; ++i) {
         int x;
         std::cin >> x;
         startField[i] = x;
@@ -286,10 +280,10 @@ int main() {
     } 
 	std::cout << result << std::endl;
 
-
-    if (result != "-1") {
-        test(startField, result);
-    }
+    
+    /* if (result != "-1") {
+        test(startField, result);  // TEST
+    } */
 
 	return 0;
 }

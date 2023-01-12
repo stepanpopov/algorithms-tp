@@ -169,15 +169,48 @@ vector<NextState> GameState::getNextStates() const {
 	return nextStates;
 }
 
+int GameState::getHeuristic() const {
+	int generalHeuristic = 0;
+	for (int i = 0; i < FieldSize; ++i) {
+		// Ситуация нахождения костяшки на чужом месте
+		int finalPosition = findNodeIndex(field[i]);
+		if (i != finalPosition) {
+			generalHeuristic += (abs(i / SideSize - finalPosition / SideSize) + abs(i % SideSize - finalPosition % SideSize));
+		}
 
-size_t GameState::Evristic() {
-    int 
-    for (int i = 0; i < field.size(); ++i) {
-        
+		int linearConflicts = 0;
 
-    }
+		for (int j = i + 1; j < SideSize; ++j) {
+			int secondFinalPos = findNodeIndex(field[j]);
+			if ((i / SideSize == finalPosition / SideSize) && (j / SideSize == secondFinalPos / SideSize)) {
+				if (field[i] > field[j]) linearConflicts += 2;
+			}
+		}
+
+		for (int j = i + SideSize; j < FieldSize; j += SideSize) {
+			int secondFinalPos = findNodeIndex(field[j]);
+			if ((i % SideSize == finalPosition % SideSize) && (j % SideSize == secondFinalPos % SideSize)) {
+				if (field[i] > field[j]) linearConflicts += 2;
+			}
+		}
+
+		generalHeuristic += linearConflicts;
+
+		if (linearConflicts == 0) {
+			if (((i == 1 && field[i] == 2) || (i == SideSize && field[i] == SideSize + 1)) && (findNodeIndex(1) != 0)) {
+				generalHeuristic += 2;
+			}
+			else if (((i == SideSize - 2 && field[i] == SideSize) || (i == 2 * SideSize - 1 && field[i] == 2 * SideSize)) && (findNodeIndex(SideSize) != SideSize - 1)) {
+				generalHeuristic += 2;
+			}
+			else if (((i == SideSize * (SideSize - 2) && field[i] == SideSize * (SideSize - 2) + 1) || (i == SideSize * (SideSize - 1) + 1 && field[i] == SideSize * (SideSize - 1) + 2)) && (findNodeIndex(SideSize * (SideSize - 1) + 1) != SideSize * (SideSize - 1))) {
+				generalHeuristic += 2;
+			}
+		}
+	}
+
+	return generalHeuristic;
 }
-
 
 
 class StateHasher {
